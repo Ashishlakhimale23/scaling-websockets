@@ -9,7 +9,7 @@ interface User {
 
 interface message{
     type : messageType,
-    roomId ?: number,
+    roomId : number,
     message ?: string
 }
 
@@ -50,6 +50,17 @@ ws.on("connection",(socket:WebSocket)=>{
             }
 
             console.log(usersAndRooms)
+
+        }
+        
+        if(messageData.type == "message"){
+
+            const usersInTheRoom = usersAndRooms.get(messageData.roomId)
+            usersInTheRoom?.forEach((user) => {
+                if(user.socket !== socket){
+                    user.socket.send(messageData.message!)
+                }
+            })
 
         }
 

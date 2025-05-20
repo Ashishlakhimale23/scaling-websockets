@@ -37,6 +37,14 @@ ws.on("connection", (socket) => {
             }
             console.log(usersAndRooms);
         }
+        if (messageData.type == "message") {
+            const usersInTheRoom = usersAndRooms.get(messageData.roomId);
+            usersInTheRoom === null || usersInTheRoom === void 0 ? void 0 : usersInTheRoom.forEach((user) => {
+                if (user.socket !== socket) {
+                    user.socket.send(messageData.message);
+                }
+            });
+        }
     });
     socket.send("hello from the servre");
 });
