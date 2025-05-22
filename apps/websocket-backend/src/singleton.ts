@@ -1,3 +1,4 @@
+import { WebSocket } from "ws"
 interface Users {
     socket: WebSocket,
     userId: number

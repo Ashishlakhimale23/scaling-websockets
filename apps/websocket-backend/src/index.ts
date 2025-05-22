@@ -1,22 +1,11 @@
-import {WebSocket, WebSocketServer} from "ws"
+import { WebSocket , WebSocketServer } from "ws"
 import jwt, { JwtPayload } from "jsonwebtoken"
-
-type messageType = "join" | "message"
-
-interface User {
-    userId  : number,
-    socket : WebSocket
-}
-
-interface message{
-    type : messageType,
-    roomId : number,
-    message ?: string
-}
+import { RoomManager } from "./RoomManager"
 
 
 const ws = new WebSocketServer({port:8001})
-const usersAndRooms = new Map<number,User[]>()
+
+const roomManager= new RoomManager()
 
 const verifyToken = (token:string) => {
     try {
@@ -50,56 +39,12 @@ ws.on("connection",(socket:WebSocket,req:Request)=>{
         return
     }
 
+    roomManager.addHandler(userid)
 
+    socket.on("close", () => {
+        roomManager.removeUser({userId:userid,socket:socket})
+    });
 
-
-
-    socket.on("message",(message:string)=>{
-        const messageData : message = JSON.parse(message)
-        if (messageData.type == "join") {
-
-            if (!messageData.roomId) return
-            const usersInTheRoom = usersAndRooms.get(messageData.roomId)
-            let id: number
-            if (usersInTheRoom == undefined) {
-                id = 1
-            } else {
-                id = usersInTheRoom.length + 1
-            }
-            const newUser: User = {
-                userId: id,
-                socket: socket
-            }
-            if (usersInTheRoom == undefined) {
-                //Room doesnt exist
-                usersAndRooms.set(messageData.roomId, [newUser])
-            } else {
-                // if user with same userId trys to join dont add the user to the array (server logic if we're getting the userId from the jwt token)
-                const results = usersInTheRoom.find(user => user.userId === newUser.userId)
-                console.log(results)
-                if (results) {
-                    return
-                }
-                //Room exits
-                usersAndRooms.set(messageData.roomId, [...usersInTheRoom, newUser])
-            }
-
-            console.log(usersAndRooms)
-
-        }
-        
-        if(messageData.type == "message"){
-
-            const usersInTheRoom = usersAndRooms.get(messageData.roomId)
-            usersInTheRoom?.forEach((user) => {
-                if(user.socket !== socket){
-                    user.socket.send(messageData.message!)
-                }
-            })
-
-        }
-
-
-    })
+    
 
 })
