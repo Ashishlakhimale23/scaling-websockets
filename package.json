@@ -1,41 +1,24 @@
 {
-  "name": "monorepo",
+  "name": "scaling-websockets",
   "private": true,
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
-    "prettier": "^3.5.3",
-    "turbo": "^2.5.3",
-    "typescript": "5.8.2"
+    "@types/node": "^22.15.12",
+    "prettier": "^3.4.2",
+    "turbo": "^2.4.0",
+    "typescript": "5.7.3"
   },
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "npm@10.9.2",
+  "packageManager": "npm@10.7.0",
   "workspaces": [
     "apps/*",
     "packages/*"
-  ],
-  "dependencies": {
-    "prisma": "^6.8.2"
-  },
-  "version": "1.0.0",
-  "description": "This Turborepo starter is maintained by the Turborepo core team.",
-  "main": "index.js",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Ashishlakhimale23/scaling-websockets.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/Ashishlakhimale23/scaling-websockets/issues"
-  },
-  "homepage": "https://github.com/Ashishlakhimale23/scaling-websockets#readme"
+  ]
 }

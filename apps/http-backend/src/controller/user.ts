@@ -1,7 +1,7 @@
 import { Request,Response } from "express"
 import jwt from "jsonwebtoken"
 import {ZodValidation} from '@repo/common/zod'
-import {prisma} from "@repo/db/client"
+import {prisma}  from "@repo/db/prisma"
 import bcrypjs from "bcryptjs"
 
 interface User{

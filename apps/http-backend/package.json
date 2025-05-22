@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build":"tsc -b",
+    "run" :"tsc -b && node ./dist/index.js"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +18,8 @@
   "devDependencies": {
     "@repo/typescript-config":"*",
     "@types/express": "^5.0.2",
+    "@repo/common" :"*", 
+    "@repo/db":"*",
     "typescript": "^5.8.3"
   }
 }

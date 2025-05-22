@@ -1,4 +1,5 @@
 import {WebSocket, WebSocketServer} from "ws"
+import jwt, { JwtPayload } from "jsonwebtoken"
 
 type messageType = "join" | "message"
 
@@ -17,7 +18,41 @@ interface message{
 const ws = new WebSocketServer({port:8001})
 const usersAndRooms = new Map<number,User[]>()
 
-ws.on("connection",(socket:WebSocket)=>{
+const verifyToken = (token:string) => {
+    try {
+        const jwtPayload = jwt.verify(token,"asdasd") as JwtPayload
+        return jwtPayload?.userid ?? null 
+    } catch (error) {
+        console.log("some error occured : ",error)
+        return null
+    }
+}
+
+ws.on("connection",(socket:WebSocket,req:Request)=>{
+
+    const url = req.url
+    if(!url){
+        socket.close()
+        return 
+    }
+    const queryParams : URLSearchParams= new URLSearchParams(url.split("?")[1])
+    let token: string | null = queryParams.get("token");
+    if(!token){
+        socket.close()
+        console.log("no token provided")
+        return 
+    }
+
+    const userid = verifyToken(token)
+    if(!userid){
+        console.log("no userid in the token")
+        socket.close()
+        return
+    }
+
+
+
+
 
     socket.on("message",(message:string)=>{
         const messageData : message = JSON.parse(message)
@@ -66,6 +101,5 @@ ws.on("connection",(socket:WebSocket)=>{
 
 
     })
-    socket.send("hello from the servre")
 
 })
