@@ -39,7 +39,7 @@ ws.on("connection",(socket:WebSocket,req:Request)=>{
         return
     }
 
-    roomManager.addHandler(userid)
+    roomManager.addUser({userId:userid,socket:socket})
 
     socket.on("close", () => {
         roomManager.removeUser({userId:userid,socket:socket})

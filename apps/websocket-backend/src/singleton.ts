@@ -30,7 +30,8 @@ class Singleton{
         // check if user exists in the room the same roomId as mentioned
         // user can be in multiple rooms 
         const userExistsInAnyRoom = this.userRoomMapping.get(user.userId) 
-        if(!userExistsInAnyRoom || userExistsInAnyRoom?.includes(roomId)){
+        if(userExistsInAnyRoom?.includes(roomId)){
+            console.log(userExistsInAnyRoom?.includes(roomId))
             console.log("user already exists in the room : ",userExistsInAnyRoom)
             return
         }else{
@@ -46,6 +47,7 @@ class Singleton{
 
         const roomExistsOrNot = this.userInRoom.get(roomId)
         if(!roomExistsOrNot || roomExistsOrNot.length == 0 ){
+            console.log(roomExistsOrNot)
             console.log("either the room does'nt exists or the room is empty")
             return 
         }

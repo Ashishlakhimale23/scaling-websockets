@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "build" :"tsc -b"
+    "build": "tsc -b"
   },
-  "exports":{
-    "./prisma":{
-      "types":"./src/index.ts",
-      "default":"./dist/index.js"
+  "exports": {
+    "./prisma": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
     }
   },
   "keywords": [],
@@ -16,9 +16,11 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@prisma/client": "^6.8.2",
     "prisma": "^6.8.2",
     "typescript": "^5.8.3"
-  },"devDependencies": {
+  },
+  "devDependencies": {
     "@repo/typescript-config": "*"
   }
 }
