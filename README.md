@@ -1,84 +1,178 @@
-# Turborepo starter
+# Scaling Websockets with Turborepo
 
-This Turborepo starter is maintained by the Turborepo core team.
+This repository demonstrates a scalable architecture for a monorepo-based project using Turborepo. It includes multiple applications and shared packages to build a real-time chat system with WebSocket and HTTP backends.
 
-## Using this example
+## Table of Contents
 
-Run the following command:
+- [Overview](#overview)
+- [Apps and Packages](#apps-and-packages)
+- [Getting Started](#getting-started)
+- [Development](#development)
+- [Build](#build)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Useful Links](#useful-links)
+
+---
+
+## Overview
+
+This project is a monorepo built with [Turborepo](https://turborepo.com/), designed to scale real-time applications using WebSocket and HTTP backends. It includes:
+
+- A WebSocket backend for real-time communication.
+- An HTTP backend for RESTful APIs.
+- A Next.js frontend for the web application.
+- Shared packages for database access, validation, and configuration.
+
+---
+
+## Apps and Packages
+
+### Apps
+
+- **`web`**: A [Next.js](https://nextjs.org/) app for the frontend.
+- **`http-backend`**: An Express-based HTTP backend for user authentication and room management.
+- **`websocket-backend`**: A WebSocket server for real-time chat functionality.
+
+### Packages
+
+- **`@repo/db`**: Prisma-based database access layer.
+- **`@repo/common`**: Shared utilities, including Zod-based validation.
+- **`@repo/eslint-config`**: Shared ESLint configurations.
+- **`@repo/typescript-config`**: Shared TypeScript configurations.
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js >= 18
+- npm >= 10
+- PostgreSQL database
+
+### Installation
+
+1. Clone the repository:
+
+   ```sh
+   git clone https://github.com/your-repo/scaling-websockets.git
+   cd scaling-websockets
+   ```
+
+2. Install dependencies:
+
+   ```sh
+   npm install
+   ```
+
+3. Set up the database:
+
+   - Configure the database connection in `packages/db/.env`.
+   - Run Prisma migrations:
+
+     ```sh
+     npx prisma migrate dev
+     ```
+
+4. Build the project:
+
+   ```sh
+   npm run build
+   ```
+
+---
+
+## Development
+
+To start the development servers for all apps:
 
 ```sh
-npx create-turbo@latest
+npm run dev
 ```
 
-## What's inside?
+### Individual Apps
 
-This Turborepo includes the following packages/apps:
+- **Web**: `cd apps/web && npm run dev`
+- **HTTP Backend**: `cd apps/http-backend && npm run dev`
+- **WebSocket Backend**: `cd apps/websocket-backend && npm run dev`
 
-### Apps and Packages
+---
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+## Build
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+To build all apps and packages:
 
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-```
-cd my-turborepo
-pnpm build
+```sh
+npm run build
 ```
 
-### Develop
+---
 
-To develop all apps and packages, run the following command:
+## Features
 
-```
-cd my-turborepo
-pnpm dev
-```
+### Web App (`apps/web`)
 
-### Remote Caching
+- Built with Next.js.
+- Dynamic theming with CSS variables.
+- Integration with the WebSocket backend for real-time updates.
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+### HTTP Backend (`apps/http-backend`)
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+- User authentication with JWT.
+- Room creation and chat management.
+- Zod-based request validation.
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+### WebSocket Backend (`apps/websocket-backend`)
 
-```
-cd my-turborepo
-npx turbo login
-```
+- Real-time communication using WebSocket.
+- Room-based user management.
+- Broadcast messages to room participants.
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+### Shared Packages
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+- **`@repo/db`**: Prisma ORM for database operations.
+- **`@repo/common`**: Zod validation for user input.
+- **`@repo/eslint-config`**: Centralized ESLint rules.
+- **`@repo/typescript-config`**: Shared TypeScript configurations.
 
-```
-npx turbo link
-```
+---
+
+## Architecture
+
+### Database Schema
+
+The database schema is defined in `packages/db/prisma/schema.prisma`. It includes:
+
+- **User**: Stores user credentials.
+- **Room**: Represents chat rooms.
+- **Chats**: Stores messages sent in rooms.
+
+### WebSocket Flow
+
+1. Users connect to the WebSocket server with a JWT token.
+2. The server verifies the token and associates the user with a room.
+3. Messages are broadcasted to all users in the room.
+
+### HTTP API Endpoints
+
+- **POST `/user/signup`**: User registration.
+- **POST `/user/signin`**: User login.
+- **POST `/user/createroom`**: Create a new chat room.
+- **GET `/user/getchats`**: Fetch room chats.
+
+---
 
 ## Useful Links
 
-Learn more about the power of Turborepo:
+- [Turborepo Documentation](https://turborepo.com/docs)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Prisma Documentation](https://www.prisma.io/docs)
+- [WebSocket API](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
+- [Zod Documentation](https://zod.dev/)
 
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+---
+
+## License
+
+This project is licensed under the MIT License.
