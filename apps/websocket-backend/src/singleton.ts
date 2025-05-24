@@ -37,13 +37,15 @@ class Singleton{
         }else{
             this.userRoomMapping.set(user.userId,[ ...userExistsInAnyRoom || [], roomId])
             this.userInRoom.set(roomId,[...this.userInRoom.get(roomId) || [] , user] )
+            console.log("user added in the room")
         }
     }
 
-    bordcast(message:string,roomId:string,user:Users){
+    bordcast(message:string,roomId:string,userId:number){
         // avoid sending back the message to the same user
         // room exists or not 
         // user in the room or not 
+        console.log(message,roomId,userId)
 
         const roomExistsOrNot = this.userInRoom.get(roomId)
         if(!roomExistsOrNot || roomExistsOrNot.length == 0 ){
@@ -52,13 +54,13 @@ class Singleton{
             return 
         }
 
-        const userExistsInTheRoom = this.userRoomMapping.get(user.userId) 
+        const userExistsInTheRoom = this.userRoomMapping.get(userId) 
         if(!userExistsInTheRoom || !userExistsInTheRoom?.includes(roomId)){
             console.log("the user which is trying to send the message to the room doesnt exists in the room")
             return
         }
 
-        roomExistsOrNot.forEach(receivinguser => receivinguser.userId !== user.userId ? receivinguser.socket.send(message) : receivinguser)
+        roomExistsOrNot.forEach(receivinguser => receivinguser.userId !==userId ? receivinguser.socket.send(message) : receivinguser)
     }
 
 

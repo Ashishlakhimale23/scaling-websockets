@@ -2,7 +2,6 @@ import { WebSocket , WebSocketServer } from "ws"
 import jwt, { JwtPayload } from "jsonwebtoken"
 import { RoomManager } from "./RoomManager"
 
-
 const ws = new WebSocketServer({port:8001})
 
 const roomManager= new RoomManager()

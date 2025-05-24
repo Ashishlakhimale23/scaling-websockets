@@ -1,6 +1,7 @@
 import { WebSocket } from "ws"
 import { prisma } from "@repo/db/prisma"
 import { singleton } from "./singleton"
+import {createClient} from "redis"
 
 interface Users {
     socket: WebSocket,
@@ -10,9 +11,39 @@ interface Users {
 export class RoomManager {
 
     private usersConnected: Users[]
+    private redisPublisher 
+    private redisSubscriber
 
     constructor() {
         this.usersConnected = []
+        this.redisPublisher = createClient({ url: "redis://localhost:6379" });
+        this.redisSubscriber = createClient({ url: "redis://localhost:6379" });
+        
+        this.connectRedisClients()
+
+    }
+
+    private async connectRedisClients() {
+        try {
+            if (!this.redisPublisher.isOpen) {
+                await this.redisPublisher.connect();
+            }
+            if (!this.redisSubscriber.isOpen) {
+                await this.redisSubscriber.connect();
+            }
+        } catch (error) {
+            console.error("Error connecting to Redis:", error);
+        }
+    }
+
+    handleIncomingMessage(channel:string,message:string){
+        try{
+            const parsedMessage = JSON.parse(message)
+            singleton.bordcast(parsedMessage.message,parsedMessage.roomId,parsedMessage.userId)
+        }catch(error){
+            console.error("Error handling incoming message:", error);
+        }
+
     }
 
     addUser(user: Users) {
@@ -37,7 +68,15 @@ export class RoomManager {
                     case "join_room":
                         const userExists = this.usersConnected.find((x) => x.userId === user.userId);
                         if (userExists) {
+                            console.log("reached here....")
+                            
                             singleton.addUser(user, parsedData.roomId.toString());
+                            await this.redisSubscriber.subscribe(
+                                parsedData.roomId.toString(),
+                                (message: string, channel: string) => {
+                                    this.handleIncomingMessage(channel, message);
+                                }
+                            );
                             console.log(`User ${user.userId} joined room ${parsedData.roomId}`);
                         }
                         break;
@@ -45,6 +84,10 @@ export class RoomManager {
                         const userExistsForMessage = this.usersConnected.find((x) => x.userId === user.userId);
                         if (userExistsForMessage) {
                             try {
+                                const dataTosend = {
+                                    ...parsedData,
+                                    userId: user.userId
+                                }
                                 await prisma.chats.create({
                                     data: {
                                         message: parsedData.message.toString(),
@@ -52,7 +95,7 @@ export class RoomManager {
                                         userId: user.userId
                                     }
                                 })
-                                singleton.bordcast(parsedData.message.toString(), parsedData.roomId.toString(), user);
+                                await this.redisPublisher.publish(parsedData.roomId,JSON.stringify(dataTosend))
                                 console.log(`User ${user.userId} messaged ${parsedData.roomId}`);
                             } catch (error) {
                                 console.log(error)
