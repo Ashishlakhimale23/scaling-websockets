@@ -11,16 +11,16 @@ interface Users {
 export class RoomManager {
 
     private usersConnected: Users[]
+    private subscribedChannels : Set<string>
     private redisPublisher 
     private redisSubscriber
 
     constructor() {
         this.usersConnected = []
+        this.subscribedChannels = new Set()
         this.redisPublisher = createClient({ url: "redis://localhost:6379" });
         this.redisSubscriber = createClient({ url: "redis://localhost:6379" });
-        
         this.connectRedisClients()
-
     }
 
     private async connectRedisClients() {
@@ -69,14 +69,16 @@ export class RoomManager {
                         const userExists = this.usersConnected.find((x) => x.userId === user.userId);
                         if (userExists) {
                             console.log("reached here....")
-                            
+                            if(!this.subscribedChannels.has(parsedData.roomId.toString())){
+                                await this.redisSubscriber.subscribe(
+                                    parsedData.roomId.toString(),
+                                    (message: string, channel: string) => {
+                                        this.handleIncomingMessage(channel, message);
+                                    }
+                                );
+                                this.subscribedChannels.add(parsedData.roomId)
+                            }
                             singleton.addUser(user, parsedData.roomId.toString());
-                            await this.redisSubscriber.subscribe(
-                                parsedData.roomId.toString(),
-                                (message: string, channel: string) => {
-                                    this.handleIncomingMessage(channel, message);
-                                }
-                            );
                             console.log(`User ${user.userId} joined room ${parsedData.roomId}`);
                         }
                         break;
