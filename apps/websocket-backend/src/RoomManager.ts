@@ -16,11 +16,13 @@ export class RoomManager {
     private redisSubscriber
 
     constructor() {
+
         this.usersConnected = []
         this.subscribedChannels = new Set()
         this.redisPublisher = createClient({ url: "redis://localhost:6379" });
         this.redisSubscriber = createClient({ url: "redis://localhost:6379" });
         this.connectRedisClients()
+        
     }
 
     private async connectRedisClients() {
@@ -30,6 +32,20 @@ export class RoomManager {
             }
             if (!this.redisSubscriber.isOpen) {
                 await this.redisSubscriber.connect();
+                //resubscribing to all the channels in are reconnecting 
+                this.redisSubscriber.on("reconnecting",async ()=>{
+                    if (this.subscribedChannels.size !== 0) {
+                        for (const values of this.subscribedChannels) {
+                            await this.redisSubscriber.subscribe(
+                                values,
+                                (message: string, channel: string) => {
+                                    this.handleIncomingMessage(channel, message);
+                                }
+                            );
+                        }
+                    }
+                })
+                 
             }
         } catch (error) {
             console.error("Error connecting to Redis:", error);
@@ -112,7 +128,6 @@ export class RoomManager {
     }
 
 
-
     removeUser(user: Users) {
         const index = this.usersConnected.findIndex((users) => users.socket === user.socket);
 
@@ -120,7 +135,9 @@ export class RoomManager {
             console.log("user doesn't exist");
             return;
         }
-        this.usersConnected.splice(index, 1);
+        const users = this.usersConnected.splice(index, 1);
+        console.log("answer :",users)
+        console.log("connected users : ",this.usersConnected)
 
         singleton.removeUser(user);
     }
