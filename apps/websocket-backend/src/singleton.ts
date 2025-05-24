@@ -63,6 +63,31 @@ class Singleton{
         roomExistsOrNot.forEach(receivinguser => receivinguser.userId !==userId ? receivinguser.socket.send(message) : receivinguser)
     }
 
+    getRoomWithZeroUsers(userId:number):string[]{
+        const usersRoom = this.userRoomMapping.get(userId)
+        let roomToUnsubscribe : string[]= []
+        console.log(usersRoom)
+
+        if(!usersRoom){
+            return [] 
+        }
+
+        usersRoom.forEach((roomId)=>{
+            const usersInARooms = this.userInRoom.get(roomId)
+            if(!usersInARooms){
+                roomToUnsubscribe.push(roomId)
+            }
+
+            // filtered the room and remove the user with the userid same as the userid provided
+            const fileteredusers = usersInARooms?.filter((user)=>user.userId!==userId)       
+            if(fileteredusers?.length == 0){
+                roomToUnsubscribe.push(roomId)
+            }
+
+        })
+        return roomToUnsubscribe
+    }
+
 
     removeUser(user:Users){
         const UserInExistsInRoom = this.userRoomMapping.get(user.userId) // return a array of roomids

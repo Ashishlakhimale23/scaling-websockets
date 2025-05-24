@@ -9,16 +9,18 @@ interface Users {
 }
 
 export class RoomManager {
-
-    private usersConnected: Users[]
-    private subscribedChannels : Set<string>
+    
     private redisPublisher 
     private redisSubscriber
+    // this should be a in memory varible also adding a snapshot to it  (redis in memory variable)
+    private subscribedChannels : Set<string>
+    private usersConnected: Users[]
 
     constructor() {
 
         this.usersConnected = []
         this.subscribedChannels = new Set()
+
         this.redisPublisher = createClient({ url: "redis://localhost:6379" });
         this.redisSubscriber = createClient({ url: "redis://localhost:6379" });
         this.connectRedisClients()
@@ -135,10 +137,22 @@ export class RoomManager {
             console.log("user doesn't exist");
             return;
         }
-        const users = this.usersConnected.splice(index, 1);
-        console.log("answer :",users)
-        console.log("connected users : ",this.usersConnected)
+        // unsubscribe the rooms which has no users in it .
+        // get the rooms with zero users of the users which is disconnecting and unsubscribe it .
+        const roomToUnsubscribe = singleton.getRoomWithZeroUsers(user.userId)
 
+        if(roomToUnsubscribe.length>0){
+            roomToUnsubscribe.forEach((roomId)=>{
+                if(this.subscribedChannels.has(roomId)){
+                    this.redisSubscriber.unsubscribe(roomId,()=>{
+                        console.log(`unsubscribed ${roomId}`)
+                    })
+                    this.subscribedChannels.delete(roomId)
+                }
+            })
+        } 
+
+        this.usersConnected.splice(index, 1);
         singleton.removeUser(user);
     }
 
