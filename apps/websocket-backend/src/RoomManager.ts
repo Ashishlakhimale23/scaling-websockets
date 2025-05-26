@@ -12,15 +12,16 @@ export class RoomManager {
     
     private redisPublisher 
     private redisSubscriber
+    private redisClient
     // this should be a in memory varible also adding a snapshot to it  (redis in memory variable)
-    private subscribedChannels : Set<string>
+    private subscribedChannels : string = "subscribedChannels" 
+    // should i also make this a in memory variable
     private usersConnected: Users[]
 
     constructor() {
 
         this.usersConnected = []
-        this.subscribedChannels = new Set()
-
+        this.redisClient = createClient({url:"redis://localhost:6379"})
         this.redisPublisher = createClient({ url: "redis://localhost:6379" });
         this.redisSubscriber = createClient({ url: "redis://localhost:6379" });
         this.connectRedisClients()
@@ -29,6 +30,9 @@ export class RoomManager {
 
     private async connectRedisClients() {
         try {
+            if(!this.redisClient.isOpen){
+                await this.redisClient.connect()
+            }
             if (!this.redisPublisher.isOpen) {
                 await this.redisPublisher.connect();
             }
@@ -36,7 +40,7 @@ export class RoomManager {
                 await this.redisSubscriber.connect();
                 //resubscribing to all the channels in are reconnecting 
                 this.redisSubscriber.on("reconnecting",async ()=>{
-                    if (this.subscribedChannels.size !== 0) {
+                    if (await this.redisClient.sCard(this.subscribedChannels) !== 0) {
                         for (const values of this.subscribedChannels) {
                             await this.redisSubscriber.subscribe(
                                 values,
@@ -81,20 +85,19 @@ export class RoomManager {
             try {
                 const parsedData = JSON.parse(event.toString())
                 console.log("Received:", parsedData);
-
                 switch (parsedData.type) {
                     case "join_room":
                         const userExists = this.usersConnected.find((x) => x.userId === user.userId);
                         if (userExists) {
                             console.log("reached here....")
-                            if(!this.subscribedChannels.has(parsedData.roomId.toString())){
+                            if(!await this.redisClient.sIsMember(this.subscribedChannels,parsedData.roomId.toString())){
                                 await this.redisSubscriber.subscribe(
                                     parsedData.roomId.toString(),
                                     (message: string, channel: string) => {
                                         this.handleIncomingMessage(channel, message);
                                     }
                                 );
-                                this.subscribedChannels.add(parsedData.roomId)
+                                await this.redisClient.sAdd(this.subscribedChannels,parsedData.roomId)
                             }
                             singleton.addUser(user, parsedData.roomId.toString());
                             console.log(`User ${user.userId} joined room ${parsedData.roomId}`);
@@ -142,12 +145,12 @@ export class RoomManager {
         const roomToUnsubscribe = singleton.getRoomWithZeroUsers(user.userId)
 
         if(roomToUnsubscribe.length>0){
-            roomToUnsubscribe.forEach((roomId)=>{
-                if(this.subscribedChannels.has(roomId)){
+            roomToUnsubscribe.forEach(async (roomId)=>{
+                if(await this.redisClient.sIsMember(this.subscribedChannels,roomId)){
                     this.redisSubscriber.unsubscribe(roomId,()=>{
                         console.log(`unsubscribed ${roomId}`)
                     })
-                    this.subscribedChannels.delete(roomId)
+                    await this.redisClient.sRem(this.subscribedChannels,roomId)
                 }
             })
         } 

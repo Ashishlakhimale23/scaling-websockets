@@ -35,6 +35,7 @@ class Singleton{
             console.log("user already exists in the room : ",userExistsInAnyRoom)
             return
         }else{
+            //limit the no of users in a room 100 are fine ..
             this.userRoomMapping.set(user.userId,[ ...userExistsInAnyRoom || [], roomId])
             this.userInRoom.set(roomId,[...this.userInRoom.get(roomId) || [] , user] )
             console.log("user added in the room")
