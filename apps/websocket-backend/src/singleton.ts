@@ -1,4 +1,5 @@
 import { WebSocket } from "ws"
+
 interface Users {
     socket: WebSocket,
     userId: number
@@ -7,16 +8,20 @@ interface Users {
 
 
 class Singleton{
+
     private static instance :Singleton
-    //userid and roomid 
+    //userid and roomid[]
     private userRoomMapping : Map<number,string[]> 
     //roomid and users[]
     private userInRoom : Map<string,Users[]>
 
     constructor(){
+
         this.userInRoom = new Map<string,Users[]>()
         this.userRoomMapping = new Map<number,string[]>() 
+
     }
+
 
     static getInstance() {
         if (Singleton.instance) {
@@ -26,9 +31,10 @@ class Singleton{
         return Singleton.instance
     }
 
-    addUser(user:Users,roomId:string){
-        // check if user exists in the room the same roomId as mentioned
-        // user can be in multiple rooms 
+
+    addUser(user: Users, roomId: string) {
+    // check if user exists in the room the same roomId as mentioned
+    // user can be in multiple rooms 
         const userExistsInAnyRoom = this.userRoomMapping.get(user.userId) 
         if(userExistsInAnyRoom?.includes(roomId)){
             console.log(userExistsInAnyRoom?.includes(roomId))

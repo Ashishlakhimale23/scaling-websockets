@@ -28,6 +28,10 @@ export class RoomManager {
 
     }
 
+    async removeFromUserConnected(userId:string) {
+        await this.redisClient.sRem(this.usersConnected, JSON.stringify(userId));
+    }
+
     private async connectRedisClients() {
         try {
             if (!this.redisClient.isOpen) {

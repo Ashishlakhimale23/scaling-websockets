@@ -41,6 +41,8 @@ ws.on("connection",(socket:WebSocket,req:Request)=>{
     roomManager.addUser({userId:userid,socket:socket})
 
     socket.on("close", () => {
+        // remove from the redis userConnected too
+        roomManager.removeFromUserConnected(userid)
         roomManager.removeUser({userId:userid,socket:socket})
     });
 
