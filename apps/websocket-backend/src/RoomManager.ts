@@ -6,13 +6,21 @@ import { createClient } from "redis"
 interface Users {
     socket: WebSocket,
     userId: number
-}
 
+}
+interface rateLimitingUser{
+    userId : number,
+    count : number
+    timeStamp : number
+}
 export class RoomManager {
 
     private redisPublisher
     private redisSubscriber
     private redisClient
+    private limit :number = 2 
+    private rateLimitingWindow  : rateLimitingUser[] 
+    private now 
     // this should be a in memory varible also adding a snapshot to it  (redis in memory variable)
     private subscribedChannels: string = "subscribedChannels"
     // i get it i get it mann the socket come different when we connect and reconnect so the resisted data in the redis check for the socket and it says it dosent exist so but the use exists so now just store the userId
@@ -25,11 +33,21 @@ export class RoomManager {
         this.redisPublisher = createClient({ url: "redis://localhost:6379" });
         this.redisSubscriber = createClient({ url: "redis://localhost:6379" });
         this.connectRedisClients()
+        this.rateLimitingWindow = []
+        this.now = new Date()
+
+
 
     }
 
-    async removeFromUserConnected(userId:string) {
-        await this.redisClient.sRem(this.usersConnected, JSON.stringify(userId));
+
+    reFillingTheCount (){
+        this.rateLimitingWindow.map(user => user.count=0)
+    }
+    
+
+    async removeFromUserConnected() {
+        await this.redisClient.del(this.usersConnected);
     }
 
     private async connectRedisClients() {
@@ -87,13 +105,34 @@ export class RoomManager {
     addHandler(user: Users) {
         user.socket.on("message", async (event) => {
             try {
+                const userExists = await this.redisClient.sIsMember(this.usersConnected, JSON.stringify(user.userId));
+                if(userExists!==1){
+                    console.log("user doesnt exists ...")
+                    return
+                }
+
+                // rate limiting should be done here
+                const findingUser = this.rateLimitingWindow.find(userToFind => userToFind.userId === user.userId)
+                if(findingUser){
+                    if(findingUser.count < this.limit){
+                        findingUser.count += 1
+                        findingUser.timeStamp = this.now.getTime()
+                    }else{
+                        console.log("rate limited bitch")
+                    }
+                }else{
+                    this.rateLimitingWindow.push({
+                        userId: user.userId,
+                        count: 0,
+                        timeStamp: this.now.getTime()
+                    })
+                }
+                
                 const parsedData = JSON.parse(event.toString())
                 console.log("Received:", parsedData);
                 switch (parsedData.type) {
                     case "join_room":
-                        const userExists = await this.redisClient.sIsMember(this.usersConnected, JSON.stringify(user.userId));
                         console.log("userExists",userExists)
-                        if (userExists == 1) {
                             console.log("reached here....")
                             if (await this.redisClient.sIsMember(this.subscribedChannels, parsedData.roomId.toString()) == 0) {
                                 await this.redisSubscriber.subscribe(
@@ -106,11 +145,8 @@ export class RoomManager {
                             }
                             singleton.addUser(user, parsedData.roomId.toString());
                             console.log(`User ${user.userId} joined room ${parsedData.roomId}`);
-                        }
                         break;
                     case "message":
-                        const userExistsForMessage = await this.redisClient.sIsMember(this.usersConnected, JSON.stringify(user.userId));
-                        if (userExistsForMessage == 1) {
                             try {
                                 const dataTosend = {
                                     ...parsedData,
@@ -128,7 +164,6 @@ export class RoomManager {
                             } catch (error) {
                                 console.log(error)
                             }
-                        }
                         break
                 }
             } catch (error) {
