@@ -109,25 +109,22 @@ export class RoomManager {
 
                 // rate limiting should be done here
 
-                const findingUser = this.rateLimitingWindow.get(user.userId)
+                const findingUser = await this.redisClient.hGetAll(user.userId.toString())
                 if(findingUser){
-                    if((this.now.getTime() - findingUser.timeStamp)/1000 >= this.timeLimit){
-                        findingUser.count = 0
-                        findingUser.timeStamp = this.now.getTime()
+                    if((this.now.getTime() - Number(findingUser.timeStamp))/1000 >= this.timeLimit){
+                        this.redisClient.hSet(user.userId.toString(), { count: 1, timestamp: this.now.getTime() })
                     }
-                    if(findingUser.count < this.requestLimit){
-                        findingUser.count += 1
+                    if(Number(findingUser.count) < this.requestLimit){
+                        this.redisClient.hSet(user.userId.toString(), { count: Number(findingUser.count) + 1, timestamp: this.now.getTime() })
                     }else{
                         console.log("rate limited bitchhhh")
                         return
                     }
                 }else{
                    // if users first message
-                   this.rateLimitingWindow.set(user.userId,
-                    {
-                        count:1,
-                        timeStamp:this.now.getTime()
-                    })
+
+                    this.redisClient.hSet(user.userId.toString(), { count: 1, timestamp: this.now.getTime() })
+
                 }
                 
                 const parsedData = JSON.parse(event.toString())
