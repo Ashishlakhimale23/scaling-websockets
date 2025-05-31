@@ -2,6 +2,7 @@ import { WebSocket } from "ws"
 import { prisma } from "@repo/db/prisma"
 import { singleton } from "./singleton"
 import { createClient } from "redis"
+import { find } from "lodash"
 
 interface Users {
     socket: WebSocket,
@@ -9,7 +10,6 @@ interface Users {
 
 }
 interface rateLimitingUser{
-    userId : number,
     count : number
     timeStamp : number
 }
@@ -18,8 +18,10 @@ export class RoomManager {
     private redisPublisher
     private redisSubscriber
     private redisClient
-    private limit :number = 2 
-    private rateLimitingWindow  : rateLimitingUser[] 
+    private timeLimit :number = 30 //seconds
+    private requestLimit : number = 3 
+    //userId and rateLimintingUser
+    private rateLimitingWindow  : Map<number,rateLimitingUser> 
     private now 
     // this should be a in memory varible also adding a snapshot to it  (redis in memory variable)
     private subscribedChannels: string = "subscribedChannels"
@@ -33,18 +35,12 @@ export class RoomManager {
         this.redisPublisher = createClient({ url: "redis://localhost:6379" });
         this.redisSubscriber = createClient({ url: "redis://localhost:6379" });
         this.connectRedisClients()
-        this.rateLimitingWindow = []
+        this.rateLimitingWindow = new Map<number,rateLimitingUser>
         this.now = new Date()
 
-
-
     }
 
-
-    reFillingTheCount (){
-        this.rateLimitingWindow.map(user => user.count=0)
-    }
-    
+   
 
     async removeFromUserConnected() {
         await this.redisClient.del(this.usersConnected);
@@ -112,19 +108,25 @@ export class RoomManager {
                 }
 
                 // rate limiting should be done here
-                const findingUser = this.rateLimitingWindow.find(userToFind => userToFind.userId === user.userId)
+
+                const findingUser = this.rateLimitingWindow.get(user.userId)
                 if(findingUser){
-                    if(findingUser.count < this.limit){
-                        findingUser.count += 1
+                    if((this.now.getTime() - findingUser.timeStamp)/1000 >= this.timeLimit){
+                        findingUser.count = 0
                         findingUser.timeStamp = this.now.getTime()
+                    }
+                    if(findingUser.count < this.requestLimit){
+                        findingUser.count += 1
                     }else{
-                        console.log("rate limited bitch")
+                        console.log("rate limited bitchhhh")
+                        return
                     }
                 }else{
-                    this.rateLimitingWindow.push({
-                        userId: user.userId,
-                        count: 0,
-                        timeStamp: this.now.getTime()
+                   // if users first message
+                   this.rateLimitingWindow.set(user.userId,
+                    {
+                        count:1,
+                        timeStamp:this.now.getTime()
                     })
                 }
                 
@@ -194,6 +196,9 @@ export class RoomManager {
                 }
             })
         }
+
+        // remove the user from the rateLimitingWindow 
+        this.rateLimitingWindow.delete(user.userId)
 
         await this.redisClient.sRem(this.usersConnected, JSON.stringify(user.userId));
         singleton.removeUser(user);
