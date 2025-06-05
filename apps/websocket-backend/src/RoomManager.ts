@@ -2,27 +2,26 @@ import { WebSocket } from "ws"
 import { prisma } from "@repo/db/prisma"
 import { singleton } from "./singleton"
 import { createClient } from "redis"
-import { find } from "lodash"
 
 interface Users {
     socket: WebSocket,
     userId: number
 
 }
-interface rateLimitingUser{
-    count : number
-    timeStamp : number
+interface rateLimitingUser {
+    count: number
+    timeStamp: number
 }
 export class RoomManager {
 
     private redisPublisher
     private redisSubscriber
     private redisClient
-    private timeLimit :number = 30 //seconds
-    private requestLimit : number = 3 
+    private timeLimit: number = 30 //seconds
+    private requestLimit: number = 3
     //userId and rateLimintingUser
-    private rateLimitingWindow  : Map<number,rateLimitingUser> 
-    private now 
+    private rateLimitingWindow: Map<number, rateLimitingUser>
+
     // this should be a in memory varible also adding a snapshot to it  (redis in memory variable)
     private subscribedChannels: string = "subscribedChannels"
     // i get it i get it mann the socket come different when we connect and reconnect so the resisted data in the redis check for the socket and it says it dosent exist so but the use exists so now just store the userId
@@ -35,15 +34,25 @@ export class RoomManager {
         this.redisPublisher = createClient({ url: "redis://localhost:6379" });
         this.redisSubscriber = createClient({ url: "redis://localhost:6379" });
         this.connectRedisClients()
-        this.rateLimitingWindow = new Map<number,rateLimitingUser>
-        this.now = new Date()
+        this.rateLimitingWindow = new Map<number, rateLimitingUser>
+
 
     }
 
-   
+
 
     async removeFromUserConnected() {
         await this.redisClient.del(this.usersConnected);
+    }
+
+    private async disconnectclients() {
+        try {
+
+            await this.redisClient.is
+        } catch (error) {
+            console.log(error)
+        }
+
     }
 
     private async connectRedisClients() {
@@ -89,10 +98,7 @@ export class RoomManager {
     async addUser(user: Users) {
 
         const userConnected = await this.redisClient.sIsMember(this.usersConnected, JSON.stringify(user.userId))
-        if (userConnected == 1) {
-            console.log("the user is already connected ...")
-            return
-        }
+
 
         await this.redisClient.sAdd(this.usersConnected, JSON.stringify(user.userId))
         this.addHandler(user)
@@ -101,68 +107,72 @@ export class RoomManager {
     addHandler(user: Users) {
         user.socket.on("message", async (event) => {
             try {
+                const now = Date.now()
                 const userExists = await this.redisClient.sIsMember(this.usersConnected, JSON.stringify(user.userId));
-                if(userExists!==1){
+                if (userExists !== 1) {
                     console.log("user doesnt exists ...")
                     return
                 }
 
                 // rate limiting should be done here
+                // fixes are that if the websocket server crashes all the userConnected should be removed
 
                 const findingUser = await this.redisClient.hGetAll(user.userId.toString())
-                if(findingUser){
-                    if((this.now.getTime() - Number(findingUser.timeStamp))/1000 >= this.timeLimit){
-                        this.redisClient.hSet(user.userId.toString(), { count: 1, timestamp: this.now.getTime() })
+                console.log(findingUser)
+                if (Object.keys(findingUser).length !== 0) {
+                    console.log((now - Number(findingUser.timestamp)) / 1000)
+                    if ((now - Number(findingUser.timestamp)) / 1000 >= this.timeLimit) {
+
+                        await this.redisClient.hSet(user.userId.toString(), { count: 1, timestamp: now })
                     }
-                    if(Number(findingUser.count) < this.requestLimit){
-                        this.redisClient.hSet(user.userId.toString(), { count: Number(findingUser.count) + 1, timestamp: this.now.getTime() })
-                    }else{
+                    if (Number(findingUser.count) < this.requestLimit) {
+                        await this.redisClient.hSet(user.userId.toString(), { count: Number(findingUser.count) + 1, timestamp: now })
+                    } else {
                         console.log("rate limited bitchhhh")
                         return
                     }
-                }else{
-                   // if users first message
-
-                    this.redisClient.hSet(user.userId.toString(), { count: 1, timestamp: this.now.getTime() })
-
+                } else {
+                    // if users first message
+                    await this.redisClient.hSet(user.userId.toString(), { count: 1, timestamp: now })
                 }
-                
+
                 const parsedData = JSON.parse(event.toString())
                 console.log("Received:", parsedData);
                 switch (parsedData.type) {
                     case "join_room":
-                        console.log("userExists",userExists)
-                            console.log("reached here....")
-                            if (await this.redisClient.sIsMember(this.subscribedChannels, parsedData.roomId.toString()) == 0) {
-                                await this.redisSubscriber.subscribe(
-                                    parsedData.roomId.toString(),
-                                    (message: string, channel: string) => {
-                                        this.handleIncomingMessage(channel, message);
-                                    }
-                                );
-                                await this.redisClient.sAdd(this.subscribedChannels, parsedData.roomId)
-                            }
-                            singleton.addUser(user, parsedData.roomId.toString());
-                            console.log(`User ${user.userId} joined room ${parsedData.roomId}`);
+                        // check if the room exist or not 
+                        // if the size is met or not 
+
+                        if (await this.redisClient.sIsMember(this.subscribedChannels, parsedData.roomId.toString()) == 0) {
+                            await this.redisSubscriber.subscribe(
+                                parsedData.roomId.toString(),
+                                (message: string, channel: string) => {
+                                    this.handleIncomingMessage(channel, message);
+                                }
+                            );
+                            await this.redisClient.sAdd(this.subscribedChannels, parsedData.roomId)
+                        }
+                        singleton.addUser(user, parsedData.roomId.toString());
+                        console.log(`User ${user.userId} joined room ${parsedData.roomId}`);
                         break;
                     case "message":
-                            try {
-                                const dataTosend = {
-                                    ...parsedData,
+                        try {
+                            const dataTosend = {
+                                ...parsedData,
+                                userId: user.userId
+                            }
+                            await prisma.chats.create({
+                                data: {
+                                    message: parsedData.message.toString(),
+                                    roomId: Number(parsedData.roomId),
                                     userId: user.userId
                                 }
-                                await prisma.chats.create({
-                                    data: {
-                                        message: parsedData.message.toString(),
-                                        roomId: Number(parsedData.roomId),
-                                        userId: user.userId
-                                    }
-                                })
-                                await this.redisPublisher.publish(parsedData.roomId, JSON.stringify(dataTosend))
-                                console.log(`User ${user.userId} messaged ${parsedData.roomId}`);
-                            } catch (error) {
-                                console.log(error)
-                            }
+                            })
+                            await this.redisPublisher.publish(parsedData.roomId, JSON.stringify(dataTosend))
+                            console.log(`User ${user.userId} messaged ${parsedData.roomId}`);
+                        } catch (error) {
+                            console.log(error)
+                        }
                         break
                 }
             } catch (error) {

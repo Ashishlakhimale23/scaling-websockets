@@ -11,7 +11,8 @@ interface User{
 }
 
 interface roomID {
-    roomId : string
+    roomId : string,
+    size ?: number
 }
 
 
@@ -97,6 +98,7 @@ export const SignInHandler = async (req:Request<{},{},User>,res:Response) =>{
 export const CreateRoom = async (req:Request<{},{},roomID>,res:Response)=>{
     const roomId = req.body.roomId
     const userid = req.userId
+    const size = req.body.size
     const exists = await prisma.room.findFirst({
         where:{
             RoomId:roomId
@@ -108,21 +110,38 @@ export const CreateRoom = async (req:Request<{},{},roomID>,res:Response)=>{
         return 
     }
 
-    const create =await prisma.room.create({
-        data:{
-            RoomId:roomId,
-            admin:{
-                connect:{
-                   id:userid                 
+    if(size){
+        const create = await prisma.room.create({
+            data: {
+                RoomId: roomId,
+                size: size,
+                admin: {
+                    connect: {
+                        id: userid
+                    }
                 }
-            }
-        },
-    })
-
-    if(!create){
-        res.json({message:"something occured could'nt create the room"})
+            },
+        })
+        if (!create) {
+            res.json({ message: "something occured could'nt create the room" })
+        }
+    } else {
+        const create = await prisma.room.create({
+            data: {
+                RoomId: roomId,
+                admin: {
+                    connect: {
+                        id: userid
+                    }
+                }
+            },
+        })
+        if (!create) {
+            res.json({ message: "something occured could'nt create the room" })
+        }
     }
-    res.json({message:create.id})
+    
+    res.json({message:"successfully create the room"})
     return
 }
 

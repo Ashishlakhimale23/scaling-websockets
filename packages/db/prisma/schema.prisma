@@ -28,6 +28,7 @@ model Room{
   adminId Int 
   admin User @relation(fields: [adminId],references: [id])
   chats Chats[]
+  size Int @default(200) 
   CreatedAt DateTime @default(now())
 }
  

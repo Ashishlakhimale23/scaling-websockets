@@ -1,4 +1,5 @@
 import { WebSocket } from "ws"
+import { prisma } from "@repo/db/prisma"
 
 interface Users {
     socket: WebSocket,
@@ -14,12 +15,24 @@ class Singleton{
     private userRoomMapping : Map<number,string[]> 
     //roomid and users[]
     private userInRoom : Map<string,Users[]>
+    //roomid and size
+    private roomAndSizeMapping : Map<string,number>
 
     constructor(){
-
         this.userInRoom = new Map<string,Users[]>()
         this.userRoomMapping = new Map<number,string[]>() 
+        this.roomAndSizeMapping = new Map<string,number>()
+        this.getRoomAndSizes()
+    }
 
+    private async getRoomAndSizes(){
+        try{
+            const roomSizes = await prisma.room.findMany({})
+            if(!roomSizes) return 
+            roomSizes.map(rooms => this.roomAndSizeMapping.set(rooms.RoomId,rooms.size))
+        }catch(error){
+            console.error(error)
+        }
     }
 
 
@@ -41,7 +54,17 @@ class Singleton{
             console.log("user already exists in the room : ",userExistsInAnyRoom)
             return
         }else{
-            //limit the no of users in a room 100 are fine ..
+            // how will we get the size of the room to validate the room limit 
+            // check if the room is one to one or else limit the no of users in a room 100 are fine what if its a one to one room ..
+            // ** but here come some fault in the system like ... 
+            // ** 1. make sure that if the room is full and the server crashes how will we validate the users that where present in the room 
+            // ** 2. this may cause a bad user experience the users that were previous existing in the room before the crash of the websocket server may not be able to join the room if it gets full after restarting
+            const checkRoomLength = this.userInRoom.get(roomId)?.length || 0
+            if(checkRoomLength == this.roomAndSizeMapping.get(roomId)){
+                user.socket.send("room is full")
+                console.log("room is full")
+                return
+            }
             this.userRoomMapping.set(user.userId,[ ...userExistsInAnyRoom || [], roomId])
             this.userInRoom.set(roomId,[...this.userInRoom.get(roomId) || [] , user] )
             console.log("user added in the room")
