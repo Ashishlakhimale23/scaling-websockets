@@ -50,6 +50,4 @@ ws.on("connection",(socket:WebSocket,req:Request)=>{
 
 })
 
-ws.on("close",()=>{
-    roomManager.removeFromUserConnected()
-})
+

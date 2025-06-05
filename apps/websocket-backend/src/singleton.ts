@@ -54,11 +54,18 @@ class Singleton{
             console.log("user already exists in the room : ",userExistsInAnyRoom)
             return
         }else{
-            // how will we get the size of the room to validate the room limit 
-            // check if the room is one to one or else limit the no of users in a room 100 are fine what if its a one to one room ..
-            // ** but here come some fault in the system like ... 
-            // ** 1. make sure that if the room is full and the server crashes how will we validate the users that where present in the room 
-            // ** 2. this may cause a bad user experience the users that were previous existing in the room before the crash of the websocket server may not be able to join the room if it gets full after restarting
+            /*
+             how will we get the size of the room to validate the room limit 
+             check if the room is one to one or else limit the no of users in a room 100 are fine what if its a one to one room ..
+             ** but here come some fault in the system like ... 
+             ** 1. make sure that if the room is full and the server crashes how will we validate the users that where present in the room 
+             ** 2. this may cause a bad user experience the users that were previous existing in the room before the crash of the websocket server may not be able to join the room if it gets full after restarting
+
+             apporach 
+             1. store the room and users mapping in the database so when the websocket server crashes just retrive the userid and allow only the users that were present previously  
+             2. make the users in the room a redis in memory variable and allow only the users previoulsy present just update the socket object when user wants to reconnect to the room
+             lets try second
+            */
             const checkRoomLength = this.userInRoom.get(roomId)?.length || 0
             if(checkRoomLength == this.roomAndSizeMapping.get(roomId)){
                 user.socket.send("room is full")

@@ -24,9 +24,8 @@ export class RoomManager {
 
     // this should be a in memory varible also adding a snapshot to it  (redis in memory variable)
     private subscribedChannels: string = "subscribedChannels"
-    // i get it i get it mann the socket come different when we connect and reconnect so the resisted data in the redis check for the socket and it says it dosent exist so but the use exists so now just store the userId
-    // should i also make this a in memory variable also make it a set too 
-    private usersConnected: string = "usersConnected"
+    // i get it i get it mann the socket come different when we connect and reconnect so the resisted data in the redis check for the socket and it says it dosent exist so but the user exists so now just store the userId
+    private usersConnected: Set<number> 
 
     constructor() {
 
@@ -35,25 +34,10 @@ export class RoomManager {
         this.redisSubscriber = createClient({ url: "redis://localhost:6379" });
         this.connectRedisClients()
         this.rateLimitingWindow = new Map<number, rateLimitingUser>
-
-
-    }
-
-
-
-    async removeFromUserConnected() {
-        await this.redisClient.del(this.usersConnected);
-    }
-
-    private async disconnectclients() {
-        try {
-
-            await this.redisClient.is
-        } catch (error) {
-            console.log(error)
-        }
+        this.usersConnected = new Set<number>
 
     }
+
 
     private async connectRedisClients() {
         try {
@@ -85,56 +69,58 @@ export class RoomManager {
         }
     }
 
-    handleIncomingMessage(channel: string, message: string) {
+    private handleIncomingMessage(channel: string, message: string) {
         try {
             const parsedMessage = JSON.parse(message)
             singleton.bordcast(parsedMessage.message, parsedMessage.roomId, parsedMessage.userId)
         } catch (error) {
             console.error("Error handling incoming message:", error);
         }
+    }
+
+    private async rateLimiting(user:Users) {
+        const now = Date.now()
+        const findingUser = await this.redisClient.hGetAll(user.userId.toString())
+        if (Object.keys(findingUser).length !== 0) {
+            console.log((now - Number(findingUser.timestamp)) / 1000)
+            if ((now - Number(findingUser.timestamp)) / 1000 >= this.timeLimit) {
+
+                await this.redisClient.hSet(user.userId.toString(), { count: 1, timestamp: now })
+            }
+            if (Number(findingUser.count) < this.requestLimit) {
+                await this.redisClient.hSet(user.userId.toString(), { count: Number(findingUser.count) + 1, timestamp: now })
+            } else {
+                console.log("rate limited bitchhhh")
+                return
+            }
+        } else {
+            // if users first message
+            await this.redisClient.hSet(user.userId.toString(), { count: 1, timestamp: now })
+        }
 
     }
 
-    async addUser(user: Users) {
+    addUser(user: Users) {
 
-        const userConnected = await this.redisClient.sIsMember(this.usersConnected, JSON.stringify(user.userId))
-
-
-        await this.redisClient.sAdd(this.usersConnected, JSON.stringify(user.userId))
+        const userConnected = this.usersConnected.has(user.userId)
+        if(userConnected){
+            console.log("user already connected")
+            return
+        }
+        this.usersConnected.add(user.userId)
         this.addHandler(user)
     }
 
     addHandler(user: Users) {
         user.socket.on("message", async (event) => {
             try {
-                const now = Date.now()
-                const userExists = await this.redisClient.sIsMember(this.usersConnected, JSON.stringify(user.userId));
-                if (userExists !== 1) {
+                const userExists = this.usersConnected.has(user.userId);
+                if (!userExists) {
                     console.log("user doesnt exists ...")
                     return
                 }
 
-                // rate limiting should be done here
-                // fixes are that if the websocket server crashes all the userConnected should be removed
-
-                const findingUser = await this.redisClient.hGetAll(user.userId.toString())
-                console.log(findingUser)
-                if (Object.keys(findingUser).length !== 0) {
-                    console.log((now - Number(findingUser.timestamp)) / 1000)
-                    if ((now - Number(findingUser.timestamp)) / 1000 >= this.timeLimit) {
-
-                        await this.redisClient.hSet(user.userId.toString(), { count: 1, timestamp: now })
-                    }
-                    if (Number(findingUser.count) < this.requestLimit) {
-                        await this.redisClient.hSet(user.userId.toString(), { count: Number(findingUser.count) + 1, timestamp: now })
-                    } else {
-                        console.log("rate limited bitchhhh")
-                        return
-                    }
-                } else {
-                    // if users first message
-                    await this.redisClient.hSet(user.userId.toString(), { count: 1, timestamp: now })
-                }
+                this.rateLimiting(user)
 
                 const parsedData = JSON.parse(event.toString())
                 console.log("Received:", parsedData);
@@ -183,9 +169,9 @@ export class RoomManager {
 
 
     async removeUser(user: Users) {
-        const index = await this.redisClient.sIsMember(this.usersConnected, JSON.stringify(user.userId));
+        const index = this.usersConnected.has(user.userId);
 
-        if (index == 1) {
+        if (!index) {
             console.log("user doesn't exist");
             return;
         }
@@ -207,7 +193,7 @@ export class RoomManager {
         // remove the user from the rateLimitingWindow 
         this.rateLimitingWindow.delete(user.userId)
 
-        await this.redisClient.sRem(this.usersConnected, JSON.stringify(user.userId));
+        this.usersConnected.delete(user.userId);
         singleton.removeUser(user);
     }
 
